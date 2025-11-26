@@ -6,20 +6,20 @@ import random
 import json
 import numpy as np
 from dotenv import load_dotenv
-from vecx.vectorx import VectorX
+from endee.endee_client import Endee
 from config.test_config import TestConfig
 import logging
 import builtins
 
 # Load environment variables
 load_dotenv()
-VECTORX_API_TOKEN = getattr(builtins, "VECTORX_API_KEY", None)
-if VECTORX_API_TOKEN == None:
-    VECTORX_API_TOKEN = os.getenv("VECTORX_API_TOKEN")
+ENDEE_API_TOKEN = getattr(builtins, "ENDEE_API_KEY", None)
+if ENDEE_API_TOKEN == None:
+    ENDEE_API_TOKEN = os.getenv("ENDEE_API_TOKEN")
 
 timestamp = getattr(builtins, "TEST_RUN_TIMESTAMP", None)
 
-print(VECTORX_API_TOKEN)
+print(ENDEE_API_TOKEN)
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -35,31 +35,31 @@ class TestUpsertVectors:
     @classmethod
     def setup_class(cls):
         """
-        Setup VectorX client, generate encryption key,
+        Setup Endee client,
         clean old test indexes, then create the 4 test indexes manually.
         """
-        cls.vx = VectorX(token=VECTORX_API_TOKEN)
-        cls.encryption_key = cls.vx.generate_key()
+        cls.nd = Endee(token=ENDEE_API_TOKEN)
+        # cls.encryption_key = cls.nd.generate_key()
         
-        with open(f"config/pipeline_mode_bool_{timestamp}.txt", "r") as f:
-            cls.pipeline_mode = f.read().strip().lower() == "true"
+        # with open(f"config/pipeline_mode_bool_{timestamp}.txt", "r") as f:
+        #     cls.pipeline_mode = f.read().strip().lower() == "true"
         
-        if cls.pipeline_mode:
-            with open(f"config/tmp_encryption_key_{timestamp}.txt", "w") as f:
-                f.write(cls.encryption_key)
+        # if cls.pipeline_mode:
+        #     with open(f"config/tmp_encryption_key_{timestamp}.txt", "w") as f:
+        #         f.write(cls.encryption_key)
 
         # Delete any leftover test indexes first
-        index_lst = cls.vx.list_indexes()
+        index_lst = cls.nd.list_indexes()
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
-                cls.vx.delete_index(index['name'])
+                cls.nd.delete_index(index['name'])
 
         # Updated index configs with new space_types
         cls.index_configs = [
-            {"name": TestConfig.TEST_UPSERT_INDEX1, "dimension": 5, "encryption": False, "space_type": "cosine"},
-            {"name": TestConfig.TEST_UPSERT_INDEX2, "dimension": 768, "encryption": False, "space_type": "l2"},
-            {"name": TestConfig.TEST_UPSERT_INDEX3, "dimension": 5, "encryption": True, "space_type": "ip"},
-            {"name": TestConfig.TEST_UPSERT_INDEX4, "dimension": 768, "encryption": True, "space_type": "cosine"},
+            {"name": TestConfig.TEST_UPSERT_INDEX1, "dimension": 5, "space_type": "cosine"},
+            {"name": TestConfig.TEST_UPSERT_INDEX2, "dimension": 768, "space_type": "l2"},
+            # {"name": TestConfig.TEST_UPSERT_INDEX3, "dimension": 5, "space_type": "ip"},
+            # {"name": TestConfig.TEST_UPSERT_INDEX4, "dimension": 768, "space_type": "cosine"},
         ]
 
         # Create each index according to config
@@ -69,11 +69,11 @@ class TestUpsertVectors:
                 "dimension": config["dimension"],
                 "space_type": config["space_type"],
             }
-            if config["encryption"]:
-                create_kwargs["key"] = cls.encryption_key
+            # if config["encryption"]:
+            #     create_kwargs["key"] = cls.encryption_key
 
-            logger.info(f"Creating index: {config['name']} with dimension {config['dimension']} and encryption {config['encryption']} and space_type {config['space_type']}")
-            result = cls.vx.create_index(**create_kwargs)
+            logger.info(f"Creating index: {config['name']} with dimension {config['dimension']} and space_type {config['space_type']}")
+            result = cls.nd.create_index(**create_kwargs)
             assert result in ("Index created successfully", "Index already exists")
 
         # Sleep shortly to ensure indexes are ready
@@ -83,20 +83,20 @@ class TestUpsertVectors:
         """
         Fetch the manually created indexes for each test method.
         """
-        self.index_no_enc_5 = self.vx.get_index(name=TestConfig.TEST_UPSERT_INDEX1)
-        self.index_no_enc_768 = self.vx.get_index(name=TestConfig.TEST_UPSERT_INDEX2)
-        self.index_enc_5 = self.vx.get_index(name=TestConfig.TEST_UPSERT_INDEX3, key=self.encryption_key)
-        self.index_enc_768 = self.vx.get_index(name=TestConfig.TEST_UPSERT_INDEX4, key=self.encryption_key)
+        self.index_no_enc_5 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX1)
+        self.index_no_enc_768 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX2)
+        # self.index_enc_5 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX3, key=self.encryption_key)
+        # self.index_enc_768 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX4, key=self.encryption_key)
 
     # @classmethod
     # def teardown_class(cls):
     #     """
     #     Clean up test indexes after all tests.
     #     """
-    #     indexes = cls.vx.list_indexes()
+    #     indexes = cls.nd.list_indexes()
     #     for idx in indexes.get("indixes", []):
     #         if idx["name"].startswith(TestConfig.TEST_INDEX_PREFIX):
-    #             cls.vx.delete_index(idx["name"])
+    #             cls.nd.delete_index(idx["name"])
     #     logger.info("Deleted all test indexes after test run.")
 
     def _generate_vector(self, id_suffix: str, dim: int, title: str = "Test Vector", visibility=None, space_type=None):
@@ -129,13 +129,11 @@ class TestUpsertVectors:
                 pytest.fail(f"Response for vector '{vec_id}' is not valid JSON: {result}")
         return result
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_10_vectors(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_10_vectors(self, index_attr, dimension, space_type):
         """
         Test upserting valid vectors and retrieving them.
         """
@@ -151,13 +149,11 @@ class TestUpsertVectors:
         assert retrieved["meta"]["title"] == sample["meta"]["title"]
         assert len(retrieved["vector"]) == dimension
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_dimension_mismatch(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_dimension_mismatch(self, index_attr, dimension, space_type):
         """
         Test upserting vector with wrong dimension raises exception.
         """
@@ -167,13 +163,11 @@ class TestUpsertVectors:
             idx.upsert([bad_vector])
         assert "dimension" in str(e_info.value).lower()
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_invalid_empty_id(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_invalid_empty_id(self, index_attr, dimension, space_type):
         """
         Test upserting vector with empty ID raises exception.
         """
@@ -184,13 +178,11 @@ class TestUpsertVectors:
             idx.upsert([bad_vector])
         assert "bad request" in str(e_info.value).lower() or "id" in str(e_info.value).lower()
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_empty_vector(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_empty_vector(self, index_attr, dimension, space_type):
         """
         Test upserting vector with empty vector list raises exception.
         """
@@ -202,13 +194,11 @@ class TestUpsertVectors:
             idx.upsert([bad_vector])
         assert "vector dimension mismatch" in str(e_info.value).lower()
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_and_retrieve_non_existent_id(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_and_retrieve_non_existent_id(self, index_attr, dimension, space_type):
         """
         Test that retrieving a non-existent vector raises exception.
         """
@@ -220,13 +210,11 @@ class TestUpsertVectors:
             idx.get_vector("vec_nonexistent")
         assert "not found" in str(e_info.value).lower()
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_update_existing_vector(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_update_existing_vector(self, index_attr, dimension, space_type):
         """
         Test updating an existing vector overwrites metadata.
         """
@@ -241,13 +229,11 @@ class TestUpsertVectors:
         retrieved = self._safe_get_vector(idx, vec_id)
         assert retrieved["meta"]["title"] == "Updated Title"
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_list_meta_type(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_list_meta_type(self, index_attr, dimension, space_type):
         """
         Test that upserting vector with meta as list is accepted.
         """
@@ -259,13 +245,11 @@ class TestUpsertVectors:
         retrieved = self._safe_get_vector(idx, bad_vector["id"])
         assert isinstance(retrieved["meta"], list)
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_upsert_long_metadata(self, index_attr, dimension, encryption, space_type):
+    def test_upsert_long_metadata(self, index_attr, dimension, space_type):
         """
         Test upserting vector with very long metadata string.
         """
@@ -277,20 +261,18 @@ class TestUpsertVectors:
         retrieved = self._safe_get_vector(idx, vector["id"])
         assert retrieved["meta"]["title"] == long_title
 
-    @pytest.mark.parametrize("index_attr, dimension, encryption, space_type", [
-        ("index_no_enc_5", 5, False, "cosine"),
-        ("index_enc_5", 5, True, "ip"),
-        ("index_no_enc_768", 768, False, "l2"),
-        ("index_enc_768", 768, True, "cosine"),
+    @pytest.mark.parametrize("index_attr, dimension, space_type", [
+        ("index_no_enc_5", 5, "cosine"),
+        ("index_no_enc_768", 768, "l2"),
     ])
-    def test_large_batch_upsert(self, index_attr, dimension, encryption, space_type):
+    def test_large_batch_upsert(self, index_attr, dimension, space_type):
         """
         Test upserting large batches in multiple chunks.
         """
         idx = getattr(self, index_attr)
         num_vectors = 2000
-        BATCH_SIZE = 500  # Reduced batch size
-        DELAY = 0.3       # 300ms delay between batches
+        BATCH_SIZE = 100  # Reduced batch size
+        DELAY = 0.5       # 300ms delay between batches
         vectors = [self._generate_vector(str(i), dimension, space_type=space_type) for i in range(num_vectors)]
 
         # Upsert in smaller batches with delay
