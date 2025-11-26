@@ -1,0 +1,1342 @@
+<!-- templates/admin/test_report_display.html -->
+<div class="test-report-container">
+    <style>
+        .test-report-container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;  /* or 1000px, 900px depending on your layout */
+            width: 100%;
+            margin: 20px auto;
+            padding: 0 15px;
+            box-sizing: border-box;
+        }
+
+        .report-header {
+            background: {% if report.exitcode == 0 %}#d4edda{% else %}#f8d7da{% endif %};
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+
+        .report-title {
+            margin: 0 0 15px 0;
+            color: {{ report.exitcode|yesno:"#155724,#721c24" }};
+            font-size: 1.25em;
+            font-weight: 600;
+            word-wrap: break-word;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .summary-value {
+            font-size: 1em;
+            font-weight: 500;
+            word-wrap: break-word;
+        }
+
+        .status-passed { color: #28a745; }
+        .status-failed { color: #dc3545; }
+        .status-general { color: #007bff; }
+        
+        .report-content {
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            background: white;
+            overflow: hidden;
+        }
+        
+        .tests-section {
+            padding: 15px;
+        }
+        
+        .section-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin: 0 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .test-item {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin: 12px 0;
+            background: white;
+            overflow: hidden;
+        }
+        
+        .test-item.failed {
+            border-color: #f5c6cb;
+            background: #fff5f5;
+        }
+        
+        .test-item.passed {
+            border-color: #c3e6cb;
+            background: #f8fff8;
+        }
+        
+        .test-header {
+            padding: 15px;
+            background: rgba(0,0,0,0.02);
+        }
+        
+        .test-name {
+            font-weight: 500;
+            margin: 0 0 10px 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .test-duration {
+            font-size: 0.9em;
+            color: #666;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+        
+        .test-class {
+            font-size: 0.85em;
+            color: #666;
+            margin: 5px 15px;
+            font-style: italic;
+        }
+        
+        .test-timing {
+            color: #000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.85em;
+            align-items: center;
+        }
+
+        .error-details {
+            margin: 15px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .error-message {
+            font-weight: 600;
+            color: #721c24;
+            margin-bottom: 10px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        
+        .error-location {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .traceback {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8em;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .setup-error, .teardown-error {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            word-wrap: break-word;
+        }
+
+        .test-metadata {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 0.85em;
+        }
+        
+        .collapsible-section {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        
+        .collapsible-header {
+            background: #f8f9fa;
+            padding: 15px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .collapsible-header:hover {
+            background: #e9ecef;
+        }
+        
+        .collapsible-content {
+            padding: 0 15px 15px 15px;
+        }
+        
+        .stats-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .badge-passed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-error { color: #fd7e14; }
+        
+        /* Error test item styling */
+        .test-item.error {
+            border-color: #ffc107;
+            background: #f8d7da;
+        }
+        
+        /* Error stats badge */
+        .badge-error {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        /* Structured traceback styling */
+        .structured-traceback {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8em;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .traceback-frame {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+            font-size: 0.85em;
+        }
+        
+        /* Full traceback styling */
+        .full-traceback {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8em;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .full-traceback pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+
+        /* Skipped status styling */
+        .status-skipped { color: #6c757d; }
+        
+        /* Skipped test item styling */
+        .test-item.skipped {
+            border-color: #dee2e6;
+            background: #d1ecf1;
+        }
+        
+        /* Skipped stats badge */
+        .badge-skipped {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        /* Skip reason styling */
+        .skip-reason {
+            margin: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .skip-message {
+            font-size: 0.9em;
+            color: #495057;
+            margin-top: 8px;
+            font-style: italic;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            .test-report-container {
+                padding: 0 10px;
+            }
+            
+            .report-header {
+                padding: 12px;
+            }
+            
+            .tests-section {
+                padding: 12px;
+            }
+            
+            .test-header {
+                padding: 12px;
+            }
+            
+            .error-details {
+                margin: 10px;
+                padding: 10px;
+            }
+            
+            .report-title {
+                font-size: 1.1em;
+            }
+            
+            .section-title {
+                font-size: 1em;
+            }
+        }
+        
+        /* Very small screens */
+        @media (max-width: 480px) {
+            .test-report-container {
+                padding: 0 5px;
+            }
+            
+            .report-header {
+                padding: 10px;
+            }
+            
+            .tests-section {
+                padding: 10px;
+            }
+            
+            .test-header {
+                padding: 10px;
+            }
+            
+            .summary-label {
+                font-size: 0.75em;
+            }
+            
+            .summary-value {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+
+    <div style="background-color: #dbeafe; color: #1e3a8a; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; font-size: 1.2rem; text-align: center;">
+        🐧 Linux Server Test Report
+    </div>
+
+    <div class="report-header">
+        <h2 class="report-title">
+            {% if report.linux.exitcode == 0 %}
+                ✅ Test Report - PASSED
+            {% else %}
+                ❌ Test Report - FAILED
+            {% endif %}
+        </h2>
+
+        <div class="summary-grid">
+            <div class="summary-item">
+                <span class="summary-label">Created</span>
+                <span class="summary-value status-general">{{ report.created_readable }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Duration</span>
+                <span class="summary-value status-general">{{ report.linux.duration|floatformat:2 }}s</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Collected</span>
+                <span class="summary-value status-general">{{ report.linux.summary.collected|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total</span>
+                <span class="summary-value status-general">{{ report.linux.summary.total|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Skipped</span>
+                <span class="summary-value status-failed">{{ report.linux.summary.skipped|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Passed</span>
+                <span class="summary-value status-passed">{{ report.linux.summary.passed|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Failed</span>
+                <span class="summary-value status-failed">{{ report.linux.summary.failed|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Error</span>
+                <span class="summary-value status-failed">{{ report.linux.summary.error|default:0 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-content">
+        <div class="tests-section">
+            {% if linux_failed_tests %}
+                <h3 class="section-title status-failed">
+                    <span>❌ Failed Tests</span>
+                    <span class="stats-badge badge-failed">{{ linux_failed_tests|length }}</span>
+                </h3>
+
+                {% for test in linux_failed_tests %}
+                    <div class="test-item failed">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Check for setup failures -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+
+                        {% if test.call.crash %}
+                            <div class="error-details">
+                                <div class="error-message">{{ test.call.crash.message }}</div>
+                                <div class="error-location">
+                                    <strong>File:</strong> {{ test.call.crash.path }}<br>
+                                    <strong>Line:</strong> {{ test.call.crash.lineno }}
+                                </div>
+                                
+                                <!-- Option 1: Show structured traceback -->
+                                {% if test.call.traceback %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                        <div class="structured-traceback" style="color: red";>
+                                            {% for frame in test.call.traceback %}
+                                                <div class="traceback-frame">
+                                                    <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                    {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                                
+                                <!-- Option 2: Show full formatted traceback -->
+                                {% if test.call.longrepr %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                        <div class="full-traceback" style="color: red;">
+                                            <pre style="color: red;"">{{ test.call.longrepr }}</pre>
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+
+                         <!-- Check for teardown failures -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong>⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            {% if linux_error_tests %}
+                <div style="height: 10px;"></div> 
+                <h3 class="section-title status-error">
+                    <span>⚠️ Error Tests</span>
+                    <span class="stats-badge badge-error">{{ linux_error_tests|length }}</span>
+                </h3>
+
+                {% for test in linux_error_tests %}
+                    <div class="test-item error">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Check for setup failures -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.setup.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.setup.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.setup.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.setup.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Check for call phase errors (since outcome is "error") -->
+                        {% if test.call.crash %}
+                            <div class="error-details">
+                                <div class="error-message">{{ test.call.crash.message }}</div>
+                                <div class="error-location">
+                                    <strong>File:</strong> {{ test.call.crash.path }}<br>
+                                    <strong>Line:</strong> {{ test.call.crash.lineno }}
+                                </div>
+                                
+                                <!-- Option 1: Show structured traceback -->
+                                {% if test.call.traceback %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                        <div class="structured-traceback" style="color: red";>
+                                            {% for frame in test.call.traceback %}
+                                                <div class="traceback-frame">
+                                                    <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                    {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                                
+                                <!-- Option 2: Show full formatted traceback -->
+                                {% if test.call.longrepr %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                        <div class="full-traceback" style="color: red;">
+                                            <pre style="color: red;"">{{ test.call.longrepr }}</pre>
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                         <!-- Check for teardown failures -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong style="color: #721c24;">⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.teardown.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.teardown.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.teardown.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #721c24;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.teardown.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.teardown.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #721c24;">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.teardown.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if linux_skipped_tests %}
+                <div style="height: 10px;"></div> 
+                <h3 class="section-title status-skipped">
+                    <span>⏭️ Skipped Tests</span>
+                    <span class="stats-badge badge-skipped">{{ linux_skipped_tests|length }}</span>
+                </h3>
+
+                {% for test in linux_skipped_tests %}
+                    <div class="test-item skipped">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Show skip reason -->
+                        {% if test.call.longrepr %}
+                            <div class="skip-reason">
+                                <strong style="color: #d17f00;">📋 Skip Message:</strong>
+                                <div class="skip-message">{{ test.call.longrepr }}</div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Check for setup failures (unlikely but possible) -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.setup.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.setup.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.setup.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.setup.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                         <!-- Check for teardown failures (unlikely but possible) -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong>⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.teardown.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.teardown.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.teardown.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.teardown.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.teardown.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.teardown.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if linux_passed_tests %}
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection(this)">
+                        <span style="color: green;">✅ Passed Tests</span>
+                        <span class="stats-badge badge-passed">{{ linux_passed_tests|length }}</span>
+                        <span style="float: right;">▼</span>
+                    </div>
+                    <div class="collapsible-content" style="display: none;">
+                        {% for test in linux_passed_tests %}
+                            <div class="test-item passed">
+                                <div class="test-header">
+                                    <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                                    
+                                    <!-- Show breakdown of all phases -->
+                                    <div class="test-timing">
+                                        <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                        <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                        <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                        <span class="total-time">
+                                            Total: {{ test.total_duration|floatformat:3  }}s
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Show test metadata -->
+                                <div class="test-metadata">
+                                    <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                                    {% if test.keywords %}
+                                        <div class="test-keywords">
+                                            <small>Keywords: {{ test.keywords|join:", " }}</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                      
+                                <!-- Show setup logs if available -->
+                                {% if test.setup.log %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;">Show Setup Logs</summary>
+                                        <div class="setup-logs">
+                                            {% for log in test.setup.log %}
+                                                <div class="log-entry">
+                                                    <strong>[{{ log.levelname }}]</strong> {{ log.msg }}
+                                                    <small> - {{ log.filename }}:{{ log.lineno }}</small>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="height: 30px;"></div> 
+    <div style="background-color: #dbeafe; color: #1e3a8a; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; font-size: 1.2rem; text-align: center;">
+        🐧 Windows Server Test Report
+    </div>
+
+    <div class="report-header">
+        <h2 class="report-title">
+            {% if report.windows.exitcode == 0 %}
+                ✅ Test Report - PASSED
+            {% else %}
+                ❌ Test Report - FAILED
+            {% endif %}
+        </h2>
+
+        <div class="summary-grid">
+            <div class="summary-item">
+                <span class="summary-label">Created</span>
+                <span class="summary-value status-general">{{ report.created_readable }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Duration</span>
+                <span class="summary-value status-general">{{ report.windows.duration|floatformat:2 }}s</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Collected</span>
+                <span class="summary-value status-general">{{ report.windows.summary.collected|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total</span>
+                <span class="summary-value status-general">{{ report.windows.summary.total|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Skipped</span>
+                <span class="summary-value status-failed">{{ report.windows.summary.skipped|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Passed</span>
+                <span class="summary-value status-passed">{{ report.windows.summary.passed|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Failed</span>
+                <span class="summary-value status-failed">{{ report.windows.summary.failed|default:0 }}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Error</span>
+                <span class="summary-value status-failed">{{ report.windows.summary.error|default:0 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-content">
+        <div class="tests-section">
+            {% if windows_failed_tests %}
+                <h3 class="section-title status-failed">
+                    <span>❌ Failed Tests</span>
+                    <span class="stats-badge badge-failed">{{ windows_failed_tests|length }}</span>
+                </h3>
+
+                {% for test in windows_failed_tests %}
+                    <div class="test-item failed">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Check for setup failures -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+
+                        {% if test.call.crash %}
+                            <div class="error-details">
+                                <div class="error-message">{{ test.call.crash.message }}</div>
+                                <div class="error-location">
+                                    <strong>File:</strong> {{ test.call.crash.path }}<br>
+                                    <strong>Line:</strong> {{ test.call.crash.lineno }}
+                                </div>
+                                
+                                <!-- Option 1: Show structured traceback -->
+                                {% if test.call.traceback %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                        <div class="structured-traceback" style="color: red";>
+                                            {% for frame in test.call.traceback %}
+                                                <div class="traceback-frame">
+                                                    <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                    {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                                
+                                <!-- Option 2: Show full formatted traceback -->
+                                {% if test.call.longrepr %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                        <div class="full-traceback" style="color: red;">
+                                            <pre style="color: red;"">{{ test.call.longrepr }}</pre>
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+
+                         <!-- Check for teardown failures -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong>⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            {% if windows_error_tests %}
+                <div style="height: 10px;"></div> 
+                <h3 class="section-title status-error">
+                    <span>⚠️ Error Tests</span>
+                    <span class="stats-badge badge-error">{{ windows_error_tests|length }}</span>
+                </h3>
+
+                {% for test in windows_error_tests %}
+                    <div class="test-item error">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Check for setup failures -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.setup.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.setup.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.setup.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.setup.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Check for call phase errors (since outcome is "error") -->
+                        {% if test.call.crash %}
+                            <div class="error-details">
+                                <div class="error-message">{{ test.call.crash.message }}</div>
+                                <div class="error-location">
+                                    <strong>File:</strong> {{ test.call.crash.path }}<br>
+                                    <strong>Line:</strong> {{ test.call.crash.lineno }}
+                                </div>
+                                
+                                <!-- Option 1: Show structured traceback -->
+                                {% if test.call.traceback %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                        <div class="structured-traceback" style="color: red";>
+                                            {% for frame in test.call.traceback %}
+                                                <div class="traceback-frame">
+                                                    <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                    {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                                
+                                <!-- Option 2: Show full formatted traceback -->
+                                {% if test.call.longrepr %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                        <div class="full-traceback" style="color: red;">
+                                            <pre style="color: red;"">{{ test.call.longrepr }}</pre>
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                         <!-- Check for teardown failures -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong style="color: #721c24;">⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.teardown.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.teardown.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.teardown.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #721c24;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.teardown.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.teardown.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #721c24;">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.teardown.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if windows_skipped_tests %}
+                <div style="height: 10px;"></div> 
+                <h3 class="section-title status-skipped">
+                    <span>⏭️ Skipped Tests</span>
+                    <span class="stats-badge badge-skipped">{{ windows_skipped_tests|length }}</span>
+                </h3>
+
+                {% for test in windows_skipped_tests %}
+                    <div class="test-item skipped">
+                        <div class="test-header">
+                            <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                            
+                            <!-- Option 1: Show breakdown of all phases -->
+                            <div class="test-timing">
+                                <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                <span class="total-time">
+                                    Total: {{ test.total_duration|floatformat:3  }}s
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Show skip reason -->
+                        {% if test.call.longrepr %}
+                            <div class="skip-reason">
+                                <strong style="color: #d17f00;">📋 Skip Message:</strong>
+                                <div class="skip-message">{{ test.call.longrepr }}</div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Check for setup failures (unlikely but possible) -->
+                        {% if test.setup.outcome == "failed" %}
+                            <div class="setup-error">
+                                <strong>⚠️ Setup Failed</strong>
+                                {% if test.setup.crash %}
+                                    <div class="error-message">{{ test.setup.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.setup.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.setup.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.setup.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.setup.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.setup.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.setup.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                         <!-- Check for teardown failures (unlikely but possible) -->
+                        {% if test.teardown.outcome == "failed" %}
+                            <div class="teardown-error">
+                                <strong>⚠️ Teardown Failed</strong>
+                                {% if test.teardown.crash %}
+                                    <div class="error-message">{{ test.teardown.crash.message }}</div>
+                                    <div class="error-location">
+                                        <strong>File:</strong> {{ test.teardown.crash.path }}<br>
+                                        <strong>Line:</strong> {{ test.teardown.crash.lineno }}
+                                    </div>
+                                    
+                                    <!-- Option 1: Show structured traceback -->
+                                    {% if test.teardown.traceback %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"> <span style="color: #ffcc00;">Show Traceback (Structured)</span></summary>
+                                            <div class="structured-traceback" style="color: red";>
+                                                {% for frame in test.teardown.traceback %}
+                                                    <div class="traceback-frame">
+                                                        <strong>{{ frame.path }}:{{ frame.lineno }}</strong>
+                                                        {% if frame.message %} - {{ frame.message }}{% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                    
+                                    <!-- Option 2: Show full formatted traceback -->
+                                    {% if test.teardown.longrepr %}
+                                        <details>
+                                            <summary style="cursor: pointer; margin: 10px 0;"><span style="color: #ffcc00">Show Full Traceback</span></summary>
+                                            <div class="full-traceback" style="color: red;">
+                                                <pre style="color: red;"">{{ test.teardown.longrepr }}</pre>
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Show test metadata -->
+                        <div class="test-metadata">
+                            <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if windows_passed_tests %}
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection(this)">
+                        <span style="color: green;">✅ Passed Tests</span>
+                        <span class="stats-badge badge-passed">{{ windows_passed_tests|length }}</span>
+                        <span style="float: right;">▼</span>
+                    </div>
+                    <div class="collapsible-content" style="display: none;">
+                        {% for test in windows_passed_tests %}
+                            <div class="test-item passed">
+                                <div class="test-header">
+                                    <h4 class="test-name" style="color: #007bff;">{{ test.nodeid }}</h4>
+                                    
+                                    <!-- Show breakdown of all phases -->
+                                    <div class="test-timing">
+                                        <span class="setup-time">Setup: {{ test.setup.duration|floatformat:3 }}s</span>
+                                        <span class="call-time">Test: {{ test.call.duration|floatformat:3 }}s</span>
+                                        <span class="teardown-time">Teardown: {{ test.teardown.duration|floatformat:3 }}s</span>
+                                        <span class="total-time">
+                                            Total: {{ test.total_duration|floatformat:3  }}s
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Show test metadata -->
+                                <div class="test-metadata">
+                                    <small>Line: {{ test.lineno }} | Outcome: {{ test.outcome }}</small>
+                                    {% if test.keywords %}
+                                        <div class="test-keywords">
+                                            <small>Keywords: {{ test.keywords|join:", " }}</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                      
+                                <!-- Show setup logs if available -->
+                                {% if test.setup.log %}
+                                    <details>
+                                        <summary style="cursor: pointer; margin: 10px 0;">Show Setup Logs</summary>
+                                        <div class="setup-logs">
+                                            {% for log in test.setup.log %}
+                                                <div class="log-entry">
+                                                    <strong>[{{ log.levelname }}]</strong> {{ log.msg }}
+                                                    <small> - {{ log.filename }}:{{ log.lineno }}</small>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+
+    <script>
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span[style*="float: right"]');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▼';
+            }
+        }
+    </script>
+</div>
+
+
+
+
