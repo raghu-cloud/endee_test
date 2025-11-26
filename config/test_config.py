@@ -8,8 +8,8 @@ class TestConfig:
     TEST_INDEX_PREFIX = "test_idx_"
     TEST_UPSERT_INDEX1 = "test_idx_5_no_enc"
     TEST_UPSERT_INDEX2 = "test_idx_768_no_enc"
-    TEST_UPSERT_INDEX3 = "test_idx_5_enc"
-    TEST_UPSERT_INDEX4 = "test_idx_768_enc"
+    # TEST_UPSERT_INDEX3 = "test_idx_5_enc"
+    # TEST_UPSERT_INDEX4 = "test_idx_768_enc"
 
 
     @staticmethod
