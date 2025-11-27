@@ -3,9 +3,8 @@ import logging
 import sys
 import os
 from dotenv import load_dotenv
-from vecx.vectorx import VectorX
-from testsuite.vecx_crewai.base import VectorXVectorStore
-from testsuite.vecx_crewai.hugging_face import HuggingFaceEmbedder
+from endee.endee_client import Endee
+from endee_crewai import EndeeVectorStore
 from crewai import Crew, Agent, Task, Process, LLM
 from crewai.memory import ShortTermMemory,EntityMemory
 from crewai_tools import FileReadTool
@@ -13,11 +12,12 @@ import builtins
 
 
 load_dotenv()
-VECTORX_API_TOKEN = getattr(builtins, "VECTORX_API_KEY", None)
-if VECTORX_API_TOKEN == None:
-    VECTORX_API_TOKEN = os.getenv("VECTORX_API_TOKEN")
+ENDEE_API_TOKEN = getattr(builtins, "ENDEE_API_KEY", None)
+if ENDEE_API_TOKEN == None:
+    ENDEE_API_TOKEN = os.getenv("ENDEE_API_TOKEN")
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -33,30 +33,29 @@ if not logger.hasHandlers():  # Prevent duplicate handlers
 class TestCrewPipeline:
     @classmethod
     def setup_class(cls):
-        cls.vx = VectorX(token=VECTORX_API_TOKEN)
-        cls.encryption_key = cls.vx.generate_key()
+        cls.nd = Endee(token=ENDEE_API_TOKEN)
         cls.embedder_config = {
-            "provider": "custom",  # Tell CrewAI to use your embedder
+            "provider": "cohere",
             "config": {
-                "embedder": HuggingFaceEmbedder("sentence-transformers/all-MiniLM-L6-v2")
+                "model_name": "small",
+                "api_key": COHERE_API_KEY,
             }
         }
         cls.dimension = 384
-        index_lst = cls.vx.list_indexes()
+        index_lst = cls.nd.list_indexes()
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
-                cls.vx.delete_index(index['name'])
+                cls.nd.delete_index(index['name'])
         cls.cleanup_indexes = []
 
-        cls.memory_storage = VectorXVectorStore(
+        cls.memory_storage = EndeeVectorStore(
             type="vectordb_knowledge_index",
-            api_token=VECTORX_API_TOKEN,
+            api_token=ENDEE_API_TOKEN,
             embedder_config=cls.embedder_config,
-            encryption_key=cls.encryption_key
         )
 
         cls.llm = LLM(
-            model="gemini/gemini-1.5-flash",
+            model="gemini-2.5-flash-lite",
             api_key=GOOGLE_API_KEY
         )
 
@@ -202,13 +201,12 @@ class TestCrewPipeline:
         ## Popular Vector Database Systems
 
         ### Cloud-Based Solutions:
-        **VectorX:**
+        **Endee:**
         - Security-first, enterprise-grade **vector database**
-        - Performs ANN searches directly over **encrypted data** (queryable encryption)
-        - **End-to-end encryption**: data is encrypted client-side, in-transit, in-memory, and at-rest (HIPAA/SOC2 compliant)
-        - Fast similarity search on encrypted vectors: **~14 ms P99 latency** on 500K vectors, 563 QPS, 96.3% recall (4 CPU + 30GB RAM)
-        - **Memory-efficient hybrid graph structure**: ~90% lower memory usage compared to other vector DBs
-        - Supports **metadata filtering** with `$eq`, `$in`, and other flexible filter expressions during encrypted search
+        - Performs ANN searches directly over data (queryable)
+        - Fast similarity search on vectors: **~14 ms P99 latency** on 500K vectors, 563 QPS, 96.3% recall (4 CPU + 30GB RAM)
+        - **Memory-efficient graph structure**: ~90% lower memory usage compared to other vector DBs
+        - Supports **metadata filtering** with `$eq`, `$in`, and other flexible filter expressions during search
         - Multi-region, **fully managed cloud** or **on-prem deployment** options with audit logs and SLA support
         - Client SDKs available for **Python**, **JavaScript** (Go coming soon)
 
@@ -361,7 +359,6 @@ class TestCrewPipeline:
         - Monitor query patterns
 
         ### Security and Privacy:
-        - Encrypt vectors at rest and in transit
         - Access control and authentication
         - Data retention policies
         - Compliance with regulations (GDPR, CCPA)
@@ -381,10 +378,10 @@ class TestCrewPipeline:
     @classmethod
     def teardown_class(cls):
         # Runs once after all tests in this class
-        index_lst = cls.vx.list_indexes()
+        index_lst = cls.nd.list_indexes()
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
-                cls.vx.delete_index(index['name'])
+                cls.nd.delete_index(index['name'])
         logger.info("Test crew pipeline normal index tests done")
 
 
@@ -423,7 +420,7 @@ class TestCrewPipeline:
     ])
     def test_vector_db_query_retrieval(self, query):
         """
-        Test retrieval of vector database concept vectors from VectorX for each query.
+        Test retrieval of vector database concept vectors from Endee for each query.
         """
         results = self.memory_storage.search(query=query, limit=3)
         assert results is not None, f"No results returned for query: '{query}'"
