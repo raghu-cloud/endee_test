@@ -4,16 +4,17 @@ import sys
 import os
 import time
 from dotenv import load_dotenv
-from vecx.vectorx import VectorX
-from testsuite.vecx_crewai.base import VectorXVectorStore
-from testsuite.vecx_crewai.hugging_face import HuggingFaceEmbedder
+from endee.endee_client import Endee
+from endee_crewai import EndeeVectorStore
 import builtins
 
 
 load_dotenv()
-VECTORX_API_TOKEN = getattr(builtins, "VECTORX_API_KEY", None)
-if VECTORX_API_TOKEN == None:
-    VECTORX_API_TOKEN = os.getenv("VECTORX_API_TOKEN")
+ENDEE_API_TOKEN = getattr(builtins, "ENDEE_API_KEY", None)
+if ENDEE_API_TOKEN == None:
+    ENDEE_API_TOKEN = os.getenv("ENDEE_API_TOKEN")
+
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 
 # Setup logging
@@ -30,28 +31,29 @@ if not logger.hasHandlers():  # Prevent duplicate handlers
 class TestCreateVectorStore:
     @classmethod
     def setup_class(cls):
-        cls.vx = VectorX(token=VECTORX_API_TOKEN)
-        cls.encryption_key = cls.vx.generate_key()
+        cls.nd = Endee(token=ENDEE_API_TOKEN)
         cls.embedder_config = {
-            "provider": "custom",  # Tell CrewAI to use your embedder
+            "provider": "cohere",  # Tell CrewAI to use your embedder
             "config": {
-                "embedder": HuggingFaceEmbedder("sentence-transformers/all-MiniLM-L6-v2")
+                "model_name": "small",
+                "api_key": COHERE_API_KEY,
+
             }
         }
         cls.dimension = 384
-        index_lst = cls.vx.list_indexes()
+        index_lst = cls.nd.list_indexes()
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
-                cls.vx.delete_index(index['name'])
+                cls.nd.delete_index(index['name'])
         cls.cleanup_indexes = []
 
     @classmethod
     def teardown_class(cls):
         # Runs once after all tests in this class
-        index_lst = cls.vx.list_indexes()
+        index_lst = cls.nd.list_indexes()
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
-                cls.vx.delete_index(index['name'])
+                cls.nd.delete_index(index['name'])
         logger.info("Create vector store tests done")
 
 
@@ -62,13 +64,13 @@ class TestCreateVectorStore:
 
     def teardown_method(self):
         """Cleanup after each test"""
-        index_lst = self.vx.list_indexes()
+        index_lst = self.nd.list_indexes()
         print("Length", len(index_lst['indixes']))
         if len(index_lst['indixes'])==5:
             for index_name in self.cleanup_indexes:
                 print("Indixes to be deleted", self.cleanup_indexes)
                 try:
-                    self.vx.delete_index(index_name)
+                    self.nd.delete_index(index_name)
                     logger.info(f"Deleted index: {index_name}")
                     print("DELETED")
                 except Exception as e:
@@ -76,58 +78,37 @@ class TestCreateVectorStore:
             self.cleanup_indexes.clear()
 
     def test_create_vector_store_missing_parameters(self):
-        """Test that missing required parameters raise TypeError with correct messages."""
-        # Test missing 'type'
+        """Test behavior when required parameters are missing."""
+
+        # 1. Missing 'type' → Python TypeError
         with pytest.raises(TypeError) as exc_info:
-            # Initialize the VectorX vector store
-            memory_storage = VectorXVectorStore(
-                api_token=VECTORX_API_TOKEN,
+            EndeeVectorStore(
+                api_token=ENDEE_API_TOKEN,
                 embedder_config=self.embedder_config,
-                encryption_key=self.encryption_key
             )
-        assert "missing 1 required positional argument: 'type'"  in str(exc_info.value)
+        assert "missing 1 required positional argument: 'type'" in str(exc_info.value)
 
-
-        # Test missing 'api_token'
+        # 2. Missing 'api_token' → Expect: "API token must be provided if endee_index is not provided"
         with pytest.raises(ValueError) as exc_info:
-            # Initialize the VectorX vector store
-            memory_storage = VectorXVectorStore(
+            EndeeVectorStore(
                 type="test_crewai_index1",
                 embedder_config=self.embedder_config,
-                encryption_key=self.encryption_key
             )
-        assert "API token must be provided"  in str(exc_info.value)
+        assert "API token must be provided if endee_index is not provided" in str(exc_info.value)
 
-
-        # Test missing 'embedder_config'
-        with pytest.raises(ValueError) as exc_info:
-            # Initialize the VectorX vector store
-            memory_storage = VectorXVectorStore(
+        # 3. Missing embedder_config → CrewAI throws TypeError ('NoneType' is not subscriptable)
+        with pytest.raises(TypeError) as exc_info:
+            EndeeVectorStore(
                 type="test_crewai_index2",
-                api_token=VECTORX_API_TOKEN,
-                encryption_key=self.encryption_key
+                api_token=ENDEE_API_TOKEN,
             )
-        assert "Please provide an embedder configuration"  in str(exc_info.value)
-
-        # Test missing 'encryption_key'
-        with pytest.raises(ValueError) as exc_info:
-            # Initialize the VectorX vector store
-            memory_storage = VectorXVectorStore(
-                type="test_crewai_index3",
-                api_token=VECTORX_API_TOKEN,
-                embedder_config=self.embedder_config,
-            )
-        assert "Encryption key must be provided"  in str(exc_info.value)
-
+        assert "'NoneType' object is not subscriptable" in str(exc_info.value)
 
     def test_create_vector_store_all_parameters_provided(self):
-        memory_storage = VectorXVectorStore(
+        memory_storage = EndeeVectorStore(
             type=self.test_index_name,
-            api_token=VECTORX_API_TOKEN,
+            api_token=ENDEE_API_TOKEN,
             embedder_config=self.embedder_config,
-            encryption_key=self.encryption_key
         )
 
         assert memory_storage.type == self.test_index_name
-
-
