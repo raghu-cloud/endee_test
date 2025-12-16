@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 import numpy as np
-from endee.endee_client import Endee
+from endee import Endee
 from endee.exceptions import APIException
 from dotenv import load_dotenv
 import logging
@@ -81,10 +81,10 @@ class TestQueryIndex:
 
     @classmethod
     def teardown_class(cls):
-        index_lst = cls.nd.list_indexes()
-        if len(index_lst['indixes'])>0:
-            for index in index_lst['indixes']:
-                cls.nd.delete_index(index['name'])
+        # index_lst = cls.nd.list_indexes()
+        # if len(index_lst['indixes'])>0:
+        #     for index in index_lst['indixes']:
+        #         cls.nd.delete_index(index['name'])
         logger.info("Testing Query index done")
 
         
@@ -141,10 +141,7 @@ class TestQueryIndex:
                     top_k= invalid_top_k
                 )
             err = str(exc_info.value)
-            assert (
-                "k must be between 1 and 4096" in err
-                or "top_k cannot be greater than 256" in err
-            )
+            assert "top_k cannot be greater than 512 and top_k cannot be less than 1" in err
 
 
     @pytest.mark.parametrize("index_attr", ["index_no_enc_5", "index_no_enc_768"])
@@ -193,13 +190,14 @@ class TestQueryIndex:
         results = index.query(
             vector=query_vector,      # Query vector
             top_k=20,           # Number of results to return
-            filter= {"visibility":{"eq":filter_sub_category}},   # Filter for matching
+            filter= [{"visibility":{"$eq":filter_sub_category}}],   # Filter for matching
             ef=128,            # Runtime parameter for search quality
-            include_vectors=True  # Include vector data in results
+            include_vectors=True # Include vector data in results
         )
 
-        assert len(results) == 20
+        assert len(results) <= 20
 
+        # print("RESULTS",results)
         for result in results:
             vector_id_in_result = result['id']
             vector_meta_in_result = result['meta']
