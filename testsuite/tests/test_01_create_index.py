@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 import time
-from endee.endee import Endee
+from endee import Endee
 from dotenv import load_dotenv
 import logging
 from config.test_config import TestConfig
@@ -61,7 +61,7 @@ class TestCreateIndex:
         """Cleanup after each test"""
         index_lst = self.nd.list_indexes()
         print("Length", len(index_lst['indixes']))
-        if len(index_lst['indixes'])==5:
+        if len(index_lst['indixes'])==3:
             for index_name in self.cleanup_indexes:
                 print("indexes to be deleted", self.cleanup_indexes)
                 try:
@@ -143,6 +143,7 @@ class TestCreateIndex:
     @pytest.mark.parametrize("M", [16, 32, 64])
     @pytest.mark.parametrize("ef_con", [128, 256])
     @pytest.mark.parametrize("precision", ["medium", "high","ultra-high","fp16"])
+
     # @pytest.mark.parametrize("encryption", [True, False])
     def test_create_index_combinations(self, dimension, space_type, M, ef_con, precision):
         """Test all parameter combinations for index creation"""

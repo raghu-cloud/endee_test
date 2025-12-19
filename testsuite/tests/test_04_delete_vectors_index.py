@@ -4,7 +4,9 @@ import pytest
 import logging
 import numpy as np
 from dotenv import load_dotenv
-from endee.endee import Endee
+
+from endee import Endee
+
 from config.test_config import TestConfig
 import builtins
 
@@ -132,7 +134,7 @@ class TestDeleteVectorsAndIndexes:
         '''Deleting vectors with invalid filter should not affect vector count'''
         index = self.get_test_index(index_attr)
         before = index.describe().get("count", 0)
-        index.delete_with_filter({"invalid_field": {"eq": "invalid_value"}})
+        index.delete_with_filter([{"invalid_field": {"$eq": "invalid_value"}}])
         after = index.describe().get("count", 0)
         logger.info(f"Invalid filter delete on '{index_attr}' — before: {before}, after: {after}")
         assert before == after, f"Vector count changed after invalid delete filter on index {index_attr}"

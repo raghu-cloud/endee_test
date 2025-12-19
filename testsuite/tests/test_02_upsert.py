@@ -6,7 +6,9 @@ import random
 import json
 import numpy as np
 from dotenv import load_dotenv
-from endee.endee import Endee
+
+from endee import Endee
+
 from config.test_config import TestConfig
 import logging
 import builtins
@@ -299,7 +301,7 @@ class TestUpsertVectors:
         """
         idx = getattr(self, index_attr)
         num_vectors = 2000
-        BATCH_SIZE = 1000
+        BATCH_SIZE = 500
         BASE_DELAY = 1.0  # backoff starting point
         MAX_RETRIES = 10   # retry attempts per batch
 
