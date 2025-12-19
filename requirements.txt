@@ -3,7 +3,7 @@ crewai-tools==0.55.0
 cryptography==45.0.5
 django==5.2.4
 django-ninja==1.4.3
-endee==0.1.2
+endee==0.1.5
 endee-crewai==0.1.0
 fastembed==0.7.1
 gunicorn==23.0.0

@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 import time
-from endee.endee_client import Endee
+from endee.endee import Endee
 from dotenv import load_dotenv
 import logging
 from config.test_config import TestConfig
@@ -34,6 +34,7 @@ class TestCreateIndex:
     def setup_class(cls):
         cls.nd = Endee(token=ENDEE_API_TOKEN)
         index_lst = cls.nd.list_indexes()
+ 
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
                 cls.nd.delete_index(index['name'])
@@ -62,7 +63,7 @@ class TestCreateIndex:
         print("Length", len(index_lst['indixes']))
         if len(index_lst['indixes'])==5:
             for index_name in self.cleanup_indexes:
-                print("Indixes to be deleted", self.cleanup_indexes)
+                print("indexes to be deleted", self.cleanup_indexes)
                 try:
                     self.nd.delete_index(index_name)
                     logger.info(f"Deleted index: {index_name}")
@@ -141,9 +142,9 @@ class TestCreateIndex:
     @pytest.mark.parametrize("space_type", ['cosine', 'l2', 'ip'])
     @pytest.mark.parametrize("M", [16, 32, 64])
     @pytest.mark.parametrize("ef_con", [128, 256])
-    @pytest.mark.parametrize("use_fp16", [True, False])
+    @pytest.mark.parametrize("precision", ["medium", "high","ultra-high","fp16"])
     # @pytest.mark.parametrize("encryption", [True, False])
-    def test_create_index_combinations(self, dimension, space_type, M, ef_con, use_fp16):
+    def test_create_index_combinations(self, dimension, space_type, M, ef_con, precision):
         """Test all parameter combinations for index creation"""
         index_name = self.test_index_name
         self.cleanup_indexes.append(index_name)
@@ -156,7 +157,7 @@ class TestCreateIndex:
                 space_type=space_type,
                 M=M,
                 ef_con=ef_con,
-                use_fp16=use_fp16
+                precision=precision
             )
 
             assert result == "Index created successfully", f"Unexpected result: {result}"
@@ -168,12 +169,12 @@ class TestCreateIndex:
             assert info["dimension"] == dimension
             assert info["space_type"] == space_type
             assert info["M"] == M
-            assert info["precision"] == ("float16" if use_fp16 else "float32")
+            assert info["precision"] == precision
 
         except Exception as e:
             logger.error(
                 f"❌ Test failed with parameters passed: "
-                f"dimension={dimension}, space_type={space_type}, M={M}, ef_con={ef_con}, use_fp16={use_fp16}\n"
+                f"dimension={dimension}, space_type={space_type}, M={M}, ef_con={ef_con}, precision={precision}\n"
                 f"Error: {e}"
             )
             raise  # Re-raise the exception to let pytest report the failure

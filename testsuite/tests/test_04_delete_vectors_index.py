@@ -4,7 +4,7 @@ import pytest
 import logging
 import numpy as np
 from dotenv import load_dotenv
-from endee.endee_client import Endee
+from endee.endee import Endee
 from config.test_config import TestConfig
 import builtins
 

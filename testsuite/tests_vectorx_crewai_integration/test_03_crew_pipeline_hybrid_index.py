@@ -3,7 +3,7 @@ import logging
 import sys
 import os
 from dotenv import load_dotenv
-from endee.endee_client import Endee
+from endee.endee import Endee
 from endee_crewai import EndeeVectorStore
 from crewai import Crew, Agent, Task, Process, LLM
 from crewai.memory import ShortTermMemory,EntityMemory

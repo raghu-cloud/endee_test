@@ -4,7 +4,7 @@ import sys
 import os
 import time
 from dotenv import load_dotenv
-from endee.endee_client import Endee
+from endee.endee import Endee
 from endee_crewai import EndeeVectorStore
 import builtins
 
