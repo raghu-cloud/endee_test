@@ -3,7 +3,7 @@
 cryptography==45.0.5
 django==5.2.4
 django-ninja==1.4.3
-endee
+endee==0.1.5
 # endee-crewai==0.1.0
 # endee-langchain==0.1.0
 fastembed==0.7.1

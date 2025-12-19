@@ -2,7 +2,9 @@ import pytest
 import os
 import sys
 import numpy as np
+
 from endee import Endee
+
 from endee.exceptions import APIException
 from dotenv import load_dotenv
 import logging
@@ -13,6 +15,8 @@ load_dotenv()
 ENDEE_API_TOKEN = getattr(builtins, "ENDEE_API_KEY", None)
 if ENDEE_API_TOKEN == None:
     ENDEE_API_TOKEN = os.getenv("ENDEE_API_TOKEN")
+
+ENDEE_BASE_URL = os.getenv("ENDEE_BASE_URL", None)
 
 timestamp = getattr(builtins, "TEST_RUN_TIMESTAMP", None)
 
@@ -29,6 +33,9 @@ class TestQueryIndex:
     @classmethod
     def setup_class(cls):
         cls.nd = Endee(token=ENDEE_API_TOKEN)
+        # Override base URL if provided via environment variable
+        if ENDEE_BASE_URL:
+            cls.nd.set_base_url(ENDEE_BASE_URL)
         # cls.pipeline_mode = os.getenv("PIPELINE_MODE", "false").lower() == "true"
         # with open(f"config/pipeline_mode_bool_{timestamp}.txt", "r") as f:
         #     cls.pipeline_mode = f.read().strip().lower() == "true"

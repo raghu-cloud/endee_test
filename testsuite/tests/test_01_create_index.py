@@ -34,6 +34,7 @@ class TestCreateIndex:
     def setup_class(cls):
         cls.nd = Endee(token=ENDEE_API_TOKEN)
         index_lst = cls.nd.list_indexes()
+ 
         if len(index_lst['indixes'])>0:
             for index in index_lst['indixes']:
                 cls.nd.delete_index(index['name'])
@@ -62,7 +63,7 @@ class TestCreateIndex:
         print("Length", len(index_lst['indixes']))
         if len(index_lst['indixes'])==3:
             for index_name in self.cleanup_indexes:
-                print("Indixes to be deleted", self.cleanup_indexes)
+                print("indexes to be deleted", self.cleanup_indexes)
                 try:
                     self.nd.delete_index(index_name)
                     logger.info(f"Deleted index: {index_name}")
@@ -141,7 +142,8 @@ class TestCreateIndex:
     @pytest.mark.parametrize("space_type", ['cosine', 'l2', 'ip'])
     @pytest.mark.parametrize("M", [16, 32, 64])
     @pytest.mark.parametrize("ef_con", [128, 256])
-    @pytest.mark.parametrize("precision", ['medium'])
+    @pytest.mark.parametrize("precision", ["medium", "high","ultra-high","fp16"])
+
     # @pytest.mark.parametrize("encryption", [True, False])
     def test_create_index_combinations(self, dimension, space_type, M, ef_con, precision):
         """Test all parameter combinations for index creation"""

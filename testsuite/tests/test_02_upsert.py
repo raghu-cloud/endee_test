@@ -6,7 +6,9 @@ import random
 import json
 import numpy as np
 from dotenv import load_dotenv
+
 from endee import Endee
+
 from config.test_config import TestConfig
 import logging
 import builtins
@@ -94,7 +96,7 @@ class TestUpsertVectors:
     #     Clean up test indexes after all tests.
     #     """
     #     indexes = cls.nd.list_indexes()
-    #     for idx in indexes.get("indixes", []):
+    #     for idx in indexes.get("indices", []):
     #         if idx["name"].startswith(TestConfig.TEST_INDEX_PREFIX):
     #             cls.nd.delete_index(idx["name"])
     #     logger.info("Deleted all test indexes after test run.")
