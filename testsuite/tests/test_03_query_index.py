@@ -33,47 +33,48 @@ class TestQueryIndex:
     @classmethod
     def setup_class(cls):
         cls.nd = Endee(token=ENDEE_API_TOKEN)
+        cls.encryption_key = cls.nd.generate_key()
         # Override base URL if provided via environment variable
-        if ENDEE_BASE_URL:
-            cls.nd.set_base_url(ENDEE_BASE_URL)
-        # cls.pipeline_mode = os.getenv("PIPELINE_MODE", "false").lower() == "true"
+        # if ENDEE_BASE_URL:
+        #     cls.nd.set_base_url(ENDEE_BASE_URL)
+        cls.pipeline_mode = os.getenv("PIPELINE_MODE", "false").lower() == "true"
         # with open(f"config/pipeline_mode_bool_{timestamp}.txt", "r") as f:
         #     cls.pipeline_mode = f.read().strip().lower() == "true"
-        # if not cls.pipeline_mode:
-        #     cls.encryption_key = cls.vx.generate_key()
-        #     # Delete any leftover test indexes first
-        #     index_lst = cls.vx.list_indexes()
-        #     if len(index_lst['indixes'])>0:
-        #         for index in index_lst['indixes']:
-        #             cls.vx.delete_index(index['name'])
+        if not cls.pipeline_mode:
+            
+            # Delete any leftover test indexes first
+            index_lst = cls.nd.list_indexes()
+            if len(index_lst['indexes'])>0:
+                for index in index_lst['indexes']:
+                    cls.nd.delete_index(index['name'])
 
-        #     # Updated index configs with new space_types
-        #     cls.index_configs = [
-        #         {"name": TestConfig.TEST_UPSERT_INDEX1, "dimension": 5, "encryption": False, "space_type": "cosine"},
-        #         {"name": TestConfig.TEST_UPSERT_INDEX2, "dimension": 768, "encryption": False, "space_type": "l2"},
-        #         {"name": TestConfig.TEST_UPSERT_INDEX3, "dimension": 5, "encryption": True, "space_type": "ip"},
-        #         {"name": TestConfig.TEST_UPSERT_INDEX4, "dimension": 768, "encryption": True, "space_type": "cosine"},
-        #     ]
+            # Updated index configs with new space_types
+            cls.index_configs = [
+                {"name": TestConfig.TEST_UPSERT_INDEX1, "dimension": 5, "encryption": False, "space_type": "cosine"},
+                {"name": TestConfig.TEST_UPSERT_INDEX2, "dimension": 768, "encryption": False, "space_type": "l2"},
+                {"name": TestConfig.TEST_UPSERT_INDEX3, "dimension": 5, "encryption": True, "space_type": "ip"},
+                {"name": TestConfig.TEST_UPSERT_INDEX4, "dimension": 768, "encryption": True, "space_type": "cosine"},
+            ]
 
-        #     # Create each index according to config
-        #     for config in cls.index_configs:
-        #         create_kwargs = {
-        #             "name": config["name"],
-        #             "dimension": config["dimension"],
-        #             "space_type": config["space_type"],
-        #         }
-        #         if config["encryption"]:
-        #             create_kwargs["key"] = cls.encryption_key
+            # Create each index according to config
+            for config in cls.index_configs:
+                create_kwargs = {
+                    "name": config["name"],
+                    "dimension": config["dimension"],
+                    "space_type": config["space_type"],
+                }
+                if config["encryption"]:
+                    create_kwargs["key"] = cls.encryption_key
 
-        #         logger.info(f"Creating index: {config['name']} with dimension {config['dimension']} and encryption {config['encryption']} and space_type {config['space_type']}")
-        #         result = cls.vx.create_index(**create_kwargs)
+                logger.info(f"Creating index: {config['name']} with dimension {config['dimension']} and encryption {config['encryption']} and space_type {config['space_type']}")
+                result = cls.nd.create_index(**create_kwargs)
 
         #     num_vectors = 2000
         #     for config in cls.index_configs:
         #         if not config['encryption']:
-        #             idx = cls.vx.get_index(config['name'])
+        #             idx = cls.nd.get_index(config['name'])
         #         else:
-        #             idx = cls.vx.get_index(config['name'], key=cls.encryption_key)
+        #             idx = cls.nd.get_index(config['name'], key=cls.encryption_key)
         #         vectors = [TestConfig.generate_vector(str(i), config["dimension"], space_type=config["space_type"]) for i in range(num_vectors)]
 
         #         # Upsert in batches of 1000
@@ -88,10 +89,10 @@ class TestQueryIndex:
 
     @classmethod
     def teardown_class(cls):
-        # index_lst = cls.nd.list_indexes()
-        # if len(index_lst['indixes'])>0:
-        #     for index in index_lst['indixes']:
-        #         cls.nd.delete_index(index['name'])
+        index_lst = cls.nd.list_indexes()
+        if len(index_lst['indexes'])>0:
+            for index in index_lst['indexes']:
+                cls.nd.delete_index(index['name'])
         logger.info("Testing Query index done")
 
         
@@ -100,8 +101,8 @@ class TestQueryIndex:
         """Setup before each test"""
         self.index_no_enc_5 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX1)
         self.index_no_enc_768 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX2)
-        # self.index_enc_5 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX3, key= self.encryption_key)
-        # self.index_enc_768 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX4, key=self.encryption_key)
+        self.index_enc_5 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX3, key= self.encryption_key)
+        self.index_enc_768 = self.nd.get_index(name=TestConfig.TEST_UPSERT_INDEX4, key=self.encryption_key)
 
     def test_missing_query_vector(self):
         """Test that missing query vector raise TypeError with correct messages."""

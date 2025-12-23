@@ -33,10 +33,12 @@ class TestCreateIndex:
     @classmethod
     def setup_class(cls):
         cls.nd = Endee(token=ENDEE_API_TOKEN)
+        cls.encryption_key = cls.nd.generate_key()
         index_lst = cls.nd.list_indexes()
+        # print("Length", len(index_lst['indexes']))
  
-        if len(index_lst['indixes'])>0:
-            for index in index_lst['indixes']:
+        if len(index_lst['indexes'])>0:
+            for index in index_lst['indexes']:
                 cls.nd.delete_index(index['name'])
         cls.cleanup_indexes = []
 
@@ -45,8 +47,8 @@ class TestCreateIndex:
     def teardown_class(cls):
         # Runs once after all tests in this class
         index_lst = cls.nd.list_indexes()
-        if len(index_lst['indixes'])>0:
-            for index in index_lst['indixes']:
+        if len(index_lst['indexes'])>0:
+            for index in index_lst['indexes']:
                 cls.nd.delete_index(index['name'])
         logger.info("Create index tests done")
 
@@ -60,16 +62,16 @@ class TestCreateIndex:
     def teardown_method(self):
         """Cleanup after each test"""
         index_lst = self.nd.list_indexes()
-        print("Length", len(index_lst['indixes']))
-        if len(index_lst['indixes'])==3:
-            for index_name in self.cleanup_indexes:
-                print("indexes to be deleted", self.cleanup_indexes)
-                try:
-                    self.nd.delete_index(index_name)
-                    logger.info(f"Deleted index: {index_name}")
-                    print("DELETED")
-                except Exception as e:
-                    logger.warning(f"Failed to delete index '{index_name}': {e}")
+        print("Length", len(index_lst['indexes']))
+        # if len(index_lst['indexes'])==3:
+        for index_name in self.cleanup_indexes:
+            print("indexes to be deleted", self.cleanup_indexes)
+            try:
+                self.nd.delete_index(index_name)
+                logger.info(f"Deleted index: {index_name}")
+                print("DELETED")
+            except Exception as e:
+                logger.warning(f"Failed to delete index '{index_name}': {e}")
             self.cleanup_indexes.clear()
             
 
@@ -144,26 +146,41 @@ class TestCreateIndex:
     @pytest.mark.parametrize("ef_con", [128, 256])
     @pytest.mark.parametrize("precision", ["medium", "high","ultra-high","fp16"])
 
-    # @pytest.mark.parametrize("encryption", [True, False])
-    def test_create_index_combinations(self, dimension, space_type, M, ef_con, precision):
+    @pytest.mark.parametrize("encryption", [True, False])
+    def test_create_index_combinations(self, dimension, space_type, M, ef_con, precision,encryption):
         """Test all parameter combinations for index creation"""
         index_name = self.test_index_name
         self.cleanup_indexes.append(index_name)
 
         try:
+            if encryption==False:
+                result = self.nd.create_index(
+                    name=index_name,
+                    dimension=dimension,
+                    space_type=space_type,
+                    M=M,
+                    ef_con=ef_con,
+                    precision=precision
+                )
+            else:
+                result = self.nd.create_index(
+                    name=index_name,
+                    dimension=dimension,
+                    key=self.encryption_key,
+                    space_type=space_type,
+                    M=M,
+                    ef_con=ef_con,
+                    precision=precision
+                )
 
-            result = self.nd.create_index(
-                name=index_name,
-                dimension=dimension,
-                space_type=space_type,
-                M=M,
-                ef_con=ef_con,
-                precision=precision
-            )
 
             assert result == "Index created successfully", f"Unexpected result: {result}"
+            if encryption == False:
+                index_info = self.nd.get_index(index_name)
+            else:
+                index_info = self.nd.get_index(name = index_name, key = self.encryption_key)
 
-            index_info = self.nd.get_index(index_name)
+            # index_info = self.nd.get_index(index_name)
       
             info = index_info.describe()
             assert info["name"] == index_name
